@@ -31,7 +31,7 @@ class QtConan(ConanFile):
     """ Qt Conan package """
 
     name = "Qt"
-    version = "5.8.0"
+    version = "5.6.2"
     description = "Conan.io package for Qt library."
     source_dir = "qt5"
     settings = "os", "arch", "compiler", "build_type"
@@ -171,6 +171,9 @@ class QtConan(ConanFile):
                              '%s/qtrepotools/bin' % self.conanfile_directory]})
         # it seems not enough to set the vcvars for older versions
         if self.settings.compiler == "Visual Studio":
+            if self.settings.compiler.version == "15":
+                env.update({'QMAKESPEC': 'win32-msvc2017'})
+                args += ["-platform win32-msvc2017"]
             if self.settings.compiler.version == "14":
                 env.update({'QMAKESPEC': 'win32-msvc2015'})
                 args += ["-platform win32-msvc2015"]
@@ -187,10 +190,6 @@ class QtConan(ConanFile):
         env_build = VisualStudioBuildEnvironment(self)
         env.update(env_build.vars)
 
-        # Workaround for conan-io/conan#1408
-        for name, value in env.items():
-            if not value:
-                del env[name]
         with tools.environment_append(env):
             vcvars = tools.vcvars_command(self.settings)
 
@@ -203,8 +202,11 @@ class QtConan(ConanFile):
                 args += ["-openssl-linked"]
 
             self.run("cd %s && %s && set" % (self.source_dir, vcvars))
-            self.run("cd %s && %s && configure %s"
-                     % (self.source_dir, vcvars, " ".join(args)))
+            #self.run("cd %s && %s && .\configure.bat %s"
+            #         % (self.source_dir, vcvars, " ".join(args)))
+            self.run("cd %s && %s"
+                     % (self.source_dir, vcvars))
+            self.run("%s\configure.bat %s" % (self.source_dir, " ".join(args)))
             self.run("cd %s && %s && %s %s"
                      % (self.source_dir, vcvars, build_command, " ".join(build_args)))
             self.run("cd %s && %s && %s install" % (self.source_dir, vcvars, build_command))
@@ -238,7 +240,7 @@ class QtConan(ConanFile):
 
     def _build_unix(self, args):
         if self.settings.os == "Linux":
-            args += ["-silent", "-xcb"]
+            args += ["-v", "-qt-xcb"]
             if self.settings.arch == "x86":
                 args += ["-platform linux-g++-32"]
         else:
